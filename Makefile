@@ -8,6 +8,10 @@ SRCDIR=src
 OBJDIR=obj
 FLAGS=-g -Wall -std=c++11 -pthread 
 LIBS=-lpcap -lcurses 
+UNAME_S=$(shell uname -s)
+ifeq ($(UNAME_S),Darwin)
+LIBS+=-lproc
+endif
 OBJS=$(OBJDIR)/settings.o $(OBJDIR)/main.o $(OBJDIR)/packet_stats.o $(OBJDIR)/async_log.o $(OBJDIR)/proc.o $(OBJDIR)/name_res.o $(OBJDIR)/cap_mgr.o 
 EXEC=nettop
 DATE=$(shell date +"%Y-%m-%d")
@@ -39,7 +43,7 @@ $(OBJDIR)/name_res.o: src/name_res.cpp src/name_res.h src/addr_t.h src/mt_list.h
 	$(CPPC) $(FLAGS) src/name_res.cpp -c -o $@
 
 $(OBJDIR)/cap_mgr.o: src/cap_mgr.cpp src/cap_mgr.h src/mt_list.h src/packet_stats.h \
- src/addr_t.h src/utils.h $(OBJDIR)/__setup_obj_dir
+ src/addr_t.h src/utils.h src/settings.h $(OBJDIR)/__setup_obj_dir
 	$(CPPC) $(FLAGS) src/cap_mgr.cpp -c -o $@
 
 $(OBJDIR)/__setup_obj_dir :
@@ -58,4 +62,3 @@ bzip :
 
 release : FLAGS +=-O3 -D_RELEASE
 release : $(EXEC)
-

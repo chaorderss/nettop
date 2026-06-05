@@ -38,6 +38,7 @@ namespace nettop {
 		cap_mgr& operator=(const cap_mgr&) = delete;
 
 		pcap_t	*p_;
+		int	link_type_;
 public:
 		cap_mgr();
 
@@ -51,4 +52,3 @@ public:
 
 
 #endif //_CAP_MGR_H_
-
