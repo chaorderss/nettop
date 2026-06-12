@@ -9,6 +9,8 @@ Utility to show network traffic (both TCP and UDP v4 and v6) split by process an
 Download the repository and invoke `make` (`make release` for optimized build - *reccomended* when you want to use it properly and not degbugging/experimenting with it).
 Please note you need to have some dependencies satisfied (see following).
 
+On macOS, the system libpcap, ncurses, and libproc libraries provided by the Command Line Tools are used. Invoke `make release` from the repository root.
+
 ### libpcap
 
 nettop relies on *libpacap* to intercept all packets and deliver a copy to the application. On Ubuntu and Debian derivatives you should install the *-dev* version (i.e. `sudo apt install libpcap-dev`).
@@ -31,7 +33,9 @@ Executes nettop 0.5
     --filter-zero		Set to filter all zero results (default not set)
     --tcp-udp-split		Displays split of TCP and UDP traffic in % (default not set)
 -n, --no-resolve		Do not resolve addresses, leave IPs to be displayed
+    --show-host-ip		Display numeric IP below resolved host names (default not set)
 -a, --async-log-file (file)	Sets an output file where to store the packets attribued to the 'kernel' (default not set)
+-i, --interface (iface)		Capture on a specific network interface (default auto)
 -l, --limit-hosts-rows		Limits maximum number of hosts rows per pid (default no limit)
     --help			prints this help and exit
 
@@ -48,6 +52,8 @@ This will start nettop and split between TCP and UDP usage, limiting how many ho
 ### *sudo* requirements
 
 Please note nettop needs to have *root* privileges to intercept all packets incoming and outgoing from current computer. Without *root* access it's unlikely to run.
+
+On macOS, use `sudo ./nettop --interface en0` or replace `en0` with another interface such as `lo0` or a `utun` interface. Without sufficient BPF permissions, macOS will report `cannot open BPF device`.
 
 ## F.A.Q.
 

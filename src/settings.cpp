@@ -35,7 +35,9 @@ namespace {
 				"    --filter-zero\t\tSet to filter all zero results (default not set)\n"
 				"    --tcp-udp-split\t\tDisplays split of TCP and UDP traffic in % (default not set)\n"
 				"-n, --no-resolve\t\tDo not resolve addresses, leave IPs to be displayed\n"
+				"    --show-host-ip\t\tDisplay numeric IP below resolved host names (default not set)\n"
 				"-a, --async-log-file (file)\tSets an output file where to store the packets attribued to the 'kernel' (default not set)\n"
+				"-i, --interface (iface)\t\tCapture on a specific network interface (default auto)\n"
 				"-l, --limit-hosts-rows\t\tLimits maximum number of hosts rows per pid (default no limit)\n"
 				"    --help\t\t\tprints this help and exit\n\n"
 				"Press 'q' or 'ESC' inside nettop to quit, 'SPACE' or 'p' to pause nettop\n"
@@ -51,7 +53,9 @@ namespace nettop {
 		bool		FILTER_ZERO = false;
 		bool		TCP_UDP_TRAFFIC = false;
 		bool		NO_RESOLVE = false;
+		bool		SHOW_HOST_IP = false;
 		std::string	ASYNC_LOG_FILE = "";
+		std::string	INTERFACE = "";
 		size_t		LIMIT_HOSTS_ROWS = 0;
 	}
 }
@@ -68,7 +72,9 @@ int nettop::parse_args(int argc, char *argv[], const char *prog, const char *ver
 		{"no-resolve",		no_argument,       0,	'n'},
 		{"filter-zero",		no_argument, 	   0,	0},
 		{"tcp-udp-split",	no_argument,	   0,	0},
+		{"show-host-ip",	no_argument,	   0,	0},
 		{"async-log-file",	required_argument, 0,	'a'},
+		{"interface",		required_argument, 0,	'i'},
 		{"limit-hosts-rows",	required_argument, 0,	'l'},
 		{0, 0, 0, 0}
 	};
@@ -77,7 +83,7 @@ int nettop::parse_args(int argc, char *argv[], const char *prog, const char *ver
         	// getopt_long stores the option index here
         	int		option_index = 0;
 
-		if(-1 == (c = getopt_long(argc, argv, "hr:c:o:a:l:n", long_options, &option_index)))
+		if(-1 == (c = getopt_long(argc, argv, "hr:c:o:a:i:l:n", long_options, &option_index)))
        			break;
 
 		switch (c) {
@@ -87,8 +93,10 @@ int nettop::parse_args(int argc, char *argv[], const char *prog, const char *ver
                 		break;
 			if(!std::strcmp("filter-zero", long_options[option_index].name)) {
 				FILTER_ZERO = true;
-			} if(!std::strcmp("tcp-udp-split", long_options[option_index].name)) {
+			} else if(!std::strcmp("tcp-udp-split", long_options[option_index].name)) {
 				TCP_UDP_TRAFFIC = true;
+			} else if(!std::strcmp("show-host-ip", long_options[option_index].name)) {
+				SHOW_HOST_IP = true;
 			} else if(!std::strcmp("help", long_options[option_index].name)) {
 				print_help(prog, version);
 				std::exit(0);
@@ -132,6 +140,10 @@ int nettop::parse_args(int argc, char *argv[], const char *prog, const char *ver
 			ASYNC_LOG_FILE = optarg;
 		} break;
 
+		case 'i': {
+			INTERFACE = optarg;
+		} break;
+
 		case 'l': {
 			const int	m_res = std::atoi(optarg);
 			LIMIT_HOSTS_ROWS = (m_res > 0) ? m_res : 0;
@@ -152,4 +164,3 @@ int nettop::parse_args(int argc, char *argv[], const char *prog, const char *ver
 
 	return optind;
 }
-

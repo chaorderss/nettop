@@ -32,9 +32,16 @@
 #include <map>
 #include <set>
 #include <sstream>
+#ifdef __APPLE__
+#include <libproc.h>
+#include <netinet/in.h>
+#include <sys/proc_info.h>
+#include <sys/socket.h>
+#endif
 
 namespace {
 
+#ifndef __APPLE__
 	/* Parses /proc/<pid>/cmdline */
 	std::string get_cmd_line(const pid_t pid) {
 		char		cur_fd[64];
@@ -74,9 +81,9 @@ namespace {
         		if (entry->d_type == DT_DIR)
 				continue;
 			// prepare and read the sym link
-			char		cur_sd[128],
+			char		cur_sd[320],
 					buf_sd[128];
-			std::snprintf(cur_sd, 128, "/proc/%i/fd/%s", pid, entry->d_name);
+			std::snprintf(cur_sd, sizeof(cur_sd), "/proc/%i/fd/%s", pid, entry->d_name);
 			const size_t rb = readlink(cur_sd, buf_sd, 128);
 			if(rb >= 128)
 				buf_sd[127] = '\0';
@@ -170,6 +177,78 @@ namespace {
 		for(auto& i : out)
 			std::sort(i.second.begin(), i.second.end());
 	}
+#else
+	std::string get_cmd_line(const pid_t pid) {
+		char	path[PROC_PIDPATHINFO_MAXSIZE] = {0};
+		if(proc_pidpath(pid, path, sizeof(path)) > 0)
+			return path;
+		char	name[256] = {0};
+		if(proc_name(pid, name, sizeof(name)) > 0)
+			return name;
+		return "(no cmd line)";
+	}
+
+	inline bool get_local_addr(const struct in_sockinfo& ini, addr_t& out) {
+		if(ini.insi_vflag & INI_IPV4) {
+			out = addr_t(ini.insi_laddr.ina_46.i46a_addr4);
+			return true;
+		}
+		if(ini.insi_vflag & INI_IPV6) {
+			out = addr_t(ini.insi_laddr.ina_6);
+			return true;
+		}
+		return false;
+	}
+
+	inline bool add_socket_fd(const struct socket_fdinfo& sfi, nettop::sd_vec& out) {
+		const struct socket_info&	si = sfi.psi;
+		const struct in_sockinfo		*ini = 0;
+		nettop::packet_stats::type	t = nettop::packet_stats::type::PACKET_TCP;
+		if(si.soi_family != AF_INET && si.soi_family != AF_INET6)
+			return false;
+		if(si.soi_protocol == IPPROTO_TCP || si.soi_kind == SOCKINFO_TCP) {
+			ini = &si.soi_proto.pri_tcp.tcpsi_ini;
+			t = nettop::packet_stats::type::PACKET_TCP;
+		} else if(si.soi_protocol == IPPROTO_UDP || (si.soi_kind == SOCKINFO_IN && si.soi_type == SOCK_DGRAM)) {
+			ini = &si.soi_proto.pri_in;
+			t = nettop::packet_stats::type::PACKET_UDP;
+		} else {
+			return false;
+		}
+
+		addr_t	addr;
+		if(!get_local_addr(*ini, addr))
+			return false;
+		const int port = ntohs((uint16_t)ini->insi_lport);
+		if(port <= 0)
+			return false;
+		out.push_back(nettop::ext_sd(addr, port, t));
+		return true;
+	}
+
+	void get_sockets_for_pid(const pid_t pid, nettop::sd_vec& out) {
+		const int fds_sz = proc_pidinfo(pid, PROC_PIDLISTFDS, 0, 0, 0);
+		if(fds_sz <= 0)
+			return;
+		std::vector<struct proc_fdinfo> fds((fds_sz/sizeof(struct proc_fdinfo)) + 1);
+		const int fds_ret = proc_pidinfo(pid, PROC_PIDLISTFDS, 0, fds.data(), fds.size()*sizeof(struct proc_fdinfo));
+		if(fds_ret <= 0)
+			return;
+		const size_t fds_count = fds_ret/sizeof(struct proc_fdinfo);
+		for(size_t i = 0; i < fds_count; ++i) {
+			if(fds[i].proc_fdtype != PROX_FDTYPE_SOCKET)
+				continue;
+			struct socket_fdinfo sfi;
+			std::memset(&sfi, 0x00, sizeof(sfi));
+			const int sfi_ret = proc_pidfdinfo(pid, fds[i].proc_fd, PROC_PIDFDSOCKETINFO, &sfi, sizeof(sfi));
+			if(sfi_ret < (int)sizeof(sfi))
+				continue;
+			add_socket_fd(sfi, out);
+		}
+		std::sort(out.begin(), out.end());
+		out.erase(std::unique(out.begin(), out.end()), out.end());
+	}
+#endif
 
 	// async log events
 	struct log_evt : public nettop::async_line {
@@ -209,6 +288,7 @@ namespace {
 }
 
 nettop::proc_mgr::proc_mgr() {
+#ifndef __APPLE__
 	// get all the links between ext_sd --> inode
 	m_inodes	inodes_link;
 	get_all_sockets(inodes_link);
@@ -257,6 +337,27 @@ nettop::proc_mgr::proc_mgr() {
 		p_map_[proc_info(pid, cmd_line, sds)];
     	}
     	closedir(dir);
+#else
+	const int pids_hint = proc_listallpids(0, 0);
+	if(pids_hint <= 0)
+		return;
+	std::vector<pid_t>	pids((size_t)pids_hint + 1024);
+	const int pids_ret = proc_listallpids(pids.data(), pids.size()*sizeof(pid_t));
+	if(pids_ret <= 0)
+		return;
+	const size_t pids_count = std::min((size_t)pids_ret, pids.size());
+	for(size_t i = 0; i < pids_count; ++i) {
+		const pid_t	pid = pids[i];
+		if(pid <= 0)
+			continue;
+		sd_vec		sds;
+		get_sockets_for_pid(pid, sds);
+		if(sds.empty())
+			continue;
+		const std::string	cmd_line = get_cmd_line(pid);
+		p_map_[proc_info(pid, cmd_line, sds)];
+	}
+#endif
 }
 
 //#include <iostream>
@@ -367,4 +468,3 @@ void nettop::proc_mgr::bind_packets(const std::list<packet_stats>& p_list, const
 		out.push_back(ps);
 	}
 }
-

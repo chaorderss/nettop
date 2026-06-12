@@ -35,7 +35,9 @@ namespace nettop {
 		extern bool		FILTER_ZERO;
 		extern bool		TCP_UDP_TRAFFIC;
 		extern bool		NO_RESOLVE;
+		extern bool		SHOW_HOST_IP;
 		extern std::string	ASYNC_LOG_FILE;
+		extern std::string	INTERFACE;
 		extern size_t		LIMIT_HOSTS_ROWS;
 	}
 
@@ -43,4 +45,3 @@ namespace nettop {
 }
 
 #endif //_SETTINGS_H_
-

@@ -23,12 +23,14 @@
 #include <algorithm>
 #include <curses.h>
 #include <csignal>
+#include <clocale>
+#include <cstring>
 #include "utils.h"
 #include "cap_mgr.h"
 #include "proc.h"
 #include "name_res.h"
 #include "settings.h"
-#include "epoll_stdin.h"
+#include "poll_stdin.h"
 
 namespace {
 	volatile bool			quit = false,
@@ -40,6 +42,13 @@ namespace {
 	}
 
 	const char*			__version__ = "0.5";
+
+	const char* host_ip_prefix(void) {
+		const char*	locale = std::setlocale(LC_CTYPE, 0);
+		if(locale && (std::strstr(locale, "UTF-8") || std::strstr(locale, "utf-8") || std::strstr(locale, "UTF8") || std::strstr(locale, "utf8")))
+			return "   \xE2\x86\xB3 ";
+		return "   -> ";
+	}
 
 	struct ps_sorted_iter {
 		nettop::ps_vec::const_iterator					it_p_vec;
@@ -167,7 +176,7 @@ namespace {
 					tot_sent = 0;
 			// print header
 			attron(A_REVERSE);
-			mvprintw(cur_row++, 0, "%-6s  %-*s  %-9s  %-9s        ", "PID", cmdline_len, "CMDLINE", "RECV", "SENT");
+			mvprintw(cur_row++, 0, "%-6s  %-*s  %-9s  %-9s        ", "PID", (int)cmdline_len, "CMDLINE", "RECV", "SENT");
 			attroff(A_REVERSE);
 			// print each entity
 			for(const auto& sp_i : s_v) {
@@ -184,11 +193,13 @@ namespace {
 				if(cur_row >= row-1)
 					continue;
 				attron(A_BOLD);
-				mvprintw(cur_row++, 0, "%6d  %-*s %10.2f %10.2f  %-5s", i.pid, cmdline_len, r_cmd.c_str(), r_d, s_d, fmt);
+				mvprintw(cur_row++, 0, "%6d  %-*s %10.2f %10.2f  %-5s", i.pid, (int)cmdline_len, r_cmd.c_str(), r_d, s_d, fmt);
 				attroff(A_BOLD);
 				// print each server txn
 				size_t	cur_hosts = 0;
 				for(const auto& sp_j : sp_i->v_it_addr) {
+					if(cur_row >= row-1)
+						break;
 					if(limit_hosts_ && cur_hosts >= limit_hosts_) {
 						attron(A_DIM);
 						mvprintw(cur_row++, 0, "           ...");
@@ -204,12 +215,21 @@ namespace {
 					if(tot_t) {
 						std::snprintf(tcp_udp_buf, 32, "[%3lu/%3lu] ", tcp_p, udp_p);
 					}
+					const std::string	host_name = nr_.to_str(j.first),
+								host_ip = j.first.to_str();
+					const bool		show_host_ip = nettop::settings::SHOW_HOST_IP && host_name != host_ip;
 					char		buf[256];
-					std::snprintf(buf, 256, "%s%s", (nettop::settings::TCP_UDP_TRAFFIC) ? tcp_udp_buf : "", nr_.to_str(j.first).c_str());
+					std::snprintf(buf, 256, "%s%s", (nettop::settings::TCP_UDP_TRAFFIC) ? tcp_udp_buf : "", host_name.c_str());
 					std::string	r_host = buf; r_host.resize(host_line);
 					recv_send_format(tm_elapsed, j.second.recv, j.second.sent, r_d, s_d, fmt);
 					attron(A_DIM);
-					mvprintw(cur_row++, 0, "           %-*s %10.2f %10.2f  %-5s", host_line, r_host.c_str(), r_d, s_d, fmt);
+					mvprintw(cur_row++, 0, "           %-*s %10.2f %10.2f  %-5s", (int)host_line, r_host.c_str(), r_d, s_d, fmt);
+					if(show_host_ip && cur_row < row-1) {
+						char	ip_buf[256];
+						std::snprintf(ip_buf, 256, "%s%s", host_ip_prefix(), host_ip.c_str());
+						std::string	r_ip = ip_buf; r_ip.resize(host_line);
+						mvprintw(cur_row++, 0, "           %-*s", (int)host_line, r_ip.c_str());
+					}
 					attroff(A_DIM);
 					++cur_hosts;
 				}
@@ -222,7 +242,7 @@ namespace {
 			char	total_buf[128];
 			snprintf(total_buf, 128, "%s [%5.2fs (%5lu/%5lu/%5lu/%5lu/%5lu)]", 
 				__version__, 1.0*tm_elapsed.count()/1000000000.0, st.total_pkts, st.total_pkts-st.proc_pkts, st.undet_pkts, st.unmap_r_pkts, st.unmap_s_pkts);
-			mvprintw(0, 0, "nettop %-*s", cmdline_len-6, total_buf);
+			mvprintw(0, 0, "nettop %-*s", (int)(cmdline_len-6), total_buf);
 			mvprintw(0, cmdline_len+1, "  Total %10.2f %10.2f  %-5s", r_d, s_d, fmt);
 			refresh();
 		}
@@ -233,7 +253,7 @@ namespace {
 		curses_setup::MBPS[] = "MiB/s ",
 		curses_setup::GBPS[] = "GiB/s ";
 
-	struct stdin_exit : public utils::epoll_stdin {
+	struct stdin_exit : public utils::poll_stdin {
 		virtual bool on_data(const char* p, const size_t sz) const {
 			for(size_t i = 0; i < sz; ++i) {
 				switch(p[i]) {
@@ -264,6 +284,7 @@ int main(int argc, char *argv[]) {
 	try {
 		using namespace std::chrono;
 
+		std::setlocale(LC_ALL, "");
 		// setup signal functions
 		std::signal(SIGINT, sign_onexit);
 		std::signal(SIGTERM, sign_onexit);
@@ -282,7 +303,7 @@ int main(int argc, char *argv[]) {
 		// init curses
 		curses_setup			c_window(nr, nettop::settings::LIMIT_HOSTS_ROWS);
 		system_clock::time_point	latest_time = std::chrono::system_clock::now();
-		// initi epoll_stdin
+		// init poll_stdin
 		stdin_exit			ep_exit;
 		// automatically set quit to true when
 		// exiting this scope
@@ -334,4 +355,3 @@ int main(int argc, char *argv[]) {
 		std::cerr << "Unknown exception" << std::endl;
 	}
 }
-
