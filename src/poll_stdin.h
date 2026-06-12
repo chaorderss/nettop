@@ -17,8 +17,8 @@
 *	along with nettop.  If not, see <http://www.gnu.org/licenses/>.
 */
 
-#ifndef _EPOLL_STDIN_
-#define _EPOLL_STDIN_
+#ifndef _POLL_STDIN_
+#define _POLL_STDIN_
 
 #include <poll.h>
 #include <unistd.h>
@@ -28,9 +28,9 @@
 
 namespace utils {
 
-	class epoll_stdin {
+	class poll_stdin {
 	public:
-		epoll_stdin() {
+		poll_stdin() {
 		}
 
 		// return true when need to do a refresh
@@ -59,10 +59,10 @@ namespace utils {
 
 		virtual bool on_data(const char* p, const size_t sz) const = 0;
 
-		virtual ~epoll_stdin() {
+		virtual ~poll_stdin() {
 		}
 	};
 
 }
 
-#endif //_EPOLL_STDIN_
+#endif //_POLL_STDIN_

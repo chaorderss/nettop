@@ -24,7 +24,7 @@ $(OBJDIR)/settings.o: src/settings.cpp src/settings.h src/utils.h $(OBJDIR)/__se
 
 $(OBJDIR)/main.o: src/main.cpp src/utils.h src/cap_mgr.h src/mt_list.h \
  src/packet_stats.h src/addr_t.h src/proc.h src/async_log.h \
- src/name_res.h src/settings.h src/epoll_stdin.h $(OBJDIR)/__setup_obj_dir
+ src/name_res.h src/settings.h src/poll_stdin.h $(OBJDIR)/__setup_obj_dir
 	$(CPPC) $(FLAGS) src/main.cpp -c -o $@
 
 $(OBJDIR)/packet_stats.o: src/packet_stats.cpp src/packet_stats.h src/addr_t.h \

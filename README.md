@@ -33,6 +33,7 @@ Executes nettop 0.5
     --filter-zero		Set to filter all zero results (default not set)
     --tcp-udp-split		Displays split of TCP and UDP traffic in % (default not set)
 -n, --no-resolve		Do not resolve addresses, leave IPs to be displayed
+    --show-host-ip		Display numeric IP below resolved host names (default not set)
 -a, --async-log-file (file)	Sets an output file where to store the packets attribued to the 'kernel' (default not set)
 -i, --interface (iface)		Capture on a specific network interface (default auto)
 -l, --limit-hosts-rows		Limits maximum number of hosts rows per pid (default no limit)
