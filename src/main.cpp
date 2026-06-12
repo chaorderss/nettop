@@ -176,7 +176,7 @@ namespace {
 					tot_sent = 0;
 			// print header
 			attron(A_REVERSE);
-			mvprintw(cur_row++, 0, "%-6s  %-*s  %-9s  %-9s        ", "PID", cmdline_len, "CMDLINE", "RECV", "SENT");
+			mvprintw(cur_row++, 0, "%-6s  %-*s  %-9s  %-9s        ", "PID", (int)cmdline_len, "CMDLINE", "RECV", "SENT");
 			attroff(A_REVERSE);
 			// print each entity
 			for(const auto& sp_i : s_v) {
@@ -193,7 +193,7 @@ namespace {
 				if(cur_row >= row-1)
 					continue;
 				attron(A_BOLD);
-				mvprintw(cur_row++, 0, "%6d  %-*s %10.2f %10.2f  %-5s", i.pid, cmdline_len, r_cmd.c_str(), r_d, s_d, fmt);
+				mvprintw(cur_row++, 0, "%6d  %-*s %10.2f %10.2f  %-5s", i.pid, (int)cmdline_len, r_cmd.c_str(), r_d, s_d, fmt);
 				attroff(A_BOLD);
 				// print each server txn
 				size_t	cur_hosts = 0;
@@ -223,12 +223,12 @@ namespace {
 					std::string	r_host = buf; r_host.resize(host_line);
 					recv_send_format(tm_elapsed, j.second.recv, j.second.sent, r_d, s_d, fmt);
 					attron(A_DIM);
-					mvprintw(cur_row++, 0, "           %-*s %10.2f %10.2f  %-5s", host_line, r_host.c_str(), r_d, s_d, fmt);
+					mvprintw(cur_row++, 0, "           %-*s %10.2f %10.2f  %-5s", (int)host_line, r_host.c_str(), r_d, s_d, fmt);
 					if(show_host_ip && cur_row < row-1) {
 						char	ip_buf[256];
 						std::snprintf(ip_buf, 256, "%s%s", host_ip_prefix(), host_ip.c_str());
 						std::string	r_ip = ip_buf; r_ip.resize(host_line);
-						mvprintw(cur_row++, 0, "           %-*s", host_line, r_ip.c_str());
+						mvprintw(cur_row++, 0, "           %-*s", (int)host_line, r_ip.c_str());
 					}
 					attroff(A_DIM);
 					++cur_hosts;
@@ -242,7 +242,7 @@ namespace {
 			char	total_buf[128];
 			snprintf(total_buf, 128, "%s [%5.2fs (%5lu/%5lu/%5lu/%5lu/%5lu)]", 
 				__version__, 1.0*tm_elapsed.count()/1000000000.0, st.total_pkts, st.total_pkts-st.proc_pkts, st.undet_pkts, st.unmap_r_pkts, st.unmap_s_pkts);
-			mvprintw(0, 0, "nettop %-*s", cmdline_len-6, total_buf);
+			mvprintw(0, 0, "nettop %-*s", (int)(cmdline_len-6), total_buf);
 			mvprintw(0, cmdline_len+1, "  Total %10.2f %10.2f  %-5s", r_d, s_d, fmt);
 			refresh();
 		}

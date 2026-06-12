@@ -81,9 +81,9 @@ namespace {
         		if (entry->d_type == DT_DIR)
 				continue;
 			// prepare and read the sym link
-			char		cur_sd[128],
+			char		cur_sd[320],
 					buf_sd[128];
-			std::snprintf(cur_sd, 128, "/proc/%i/fd/%s", pid, entry->d_name);
+			std::snprintf(cur_sd, sizeof(cur_sd), "/proc/%i/fd/%s", pid, entry->d_name);
 			const size_t rb = readlink(cur_sd, buf_sd, 128);
 			if(rb >= 128)
 				buf_sd[127] = '\0';
