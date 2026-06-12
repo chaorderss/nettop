@@ -50,7 +50,12 @@ $(OBJDIR)/__setup_obj_dir :
 	mkdir -p $(OBJDIR)
 	touch $(OBJDIR)/__setup_obj_dir
 
-.PHONY: clean bzip release
+.PHONY: clean bzip release setcap
+
+# grant packet-capture capabilities so a non-root user can run nettop (Linux only)
+setcap : $(EXEC)
+	sudo setcap cap_net_raw,cap_net_admin+eip $(EXEC)
+	getcap $(EXEC)
 
 clean :
 	rm -rf $(OBJDIR)/*.o
